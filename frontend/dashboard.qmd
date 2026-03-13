@@ -1,0 +1,61 @@
+---
+title: "Stock Top Movers"
+format: dashboard
+theme: custom.scss
+---
+```{python}
+import pandas as pd
+from helpers import fetch_stock_data, color_direction, plot_pct_change
+from itables import show
+from matplotlib import rcParams
+
+rcParams.update({"savefig.bbox": "tight"})
+
+df = fetch_stock_data()  # fetches from your API or falls back to data.csv
+```
+
+# Top Movers
+
+## Row
+```{python}
+#| content: valuebox
+#| title: "Latest Winner"
+latest = df.iloc[0]
+dict(icon="trophy", color="success" if latest["direction"] == "gain" else "danger",
+     value=latest["ticker"])
+```
+```{python}
+#| content: valuebox
+#| title: "Latest % Change"
+dict(icon="graph-up" if latest["direction"] == "gain" else "graph-down",
+     color="success" if latest["direction"] == "gain" else "danger",
+     value=f"{latest['pct_change']:+.2f}%")
+```
+```{python}
+#| content: valuebox
+#| title: "Latest Close Price"
+dict(icon="currency-dollar", color="light", value=f"${latest['close_price']:.2f}")
+```
+
+## Row {height="60%"}
+```{python}
+#| title: "% Change by Day (Last 7 Days)"
+plot_pct_change(df)
+```
+
+## Row
+```{python}
+#| title: "Top Mover History"
+from IPython.display import Markdown
+display_df = df[["date", "ticker", "pct_change", "close_price", "direction"]].copy()
+display_df.columns = ["Date", "Ticker", "% Change", "Close Price", "Direction"]
+display_df["% Change"] = display_df["% Change"].apply(lambda x: f"{x:+.2f}%")
+display_df["Close Price"] = display_df["Close Price"].apply(lambda x: f"${x:.2f}")
+Markdown(display_df.to_markdown(index=False))
+```
+
+# Data
+```{python}
+#| title: Raw Data
+show(df)
+```

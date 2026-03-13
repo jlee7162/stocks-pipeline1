@@ -45,6 +45,7 @@ def handler(event, context):
                     "pct_change": float(item["pct_change"]),
                     "open_price": float(item["open_price"]),
                     "close_price": float(item["close_price"]),
+                    "direction": item.get("direction", "gain" if float(item["pct_change"]) >= 0 else "loss"),  
                 })
         except Exception as e:
             print(f"Error fetching data for {date}: {e}")

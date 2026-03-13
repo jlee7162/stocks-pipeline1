@@ -37,7 +37,7 @@ class StocksPipeline1Stack(Stack):
         api_fetch = _lambda.Function(
             self, "ApiFetchFunction",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="pipeline.handler",   # file: lambda/api_fetch.py, function: handler
+            handler="api_fetch.handler",   # file: lambda/api_fetch.py, function: handler
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.seconds(60),
             environment={
@@ -52,7 +52,7 @@ class StocksPipeline1Stack(Stack):
         #cron job
         rule = events.Rule(
             self, "DailyRule",
-            schedule=events.Schedule.cron(minute="0", hour="21", week_day="MON-FRI")  # UTC midnight
+            schedule=events.Schedule.cron(minute="0", hour="23", week_day="MON-FRI")  # UTC midnight
         )
         rule.add_target(targets.LambdaFunction(api_fetch, retry_attempts=2,))
 

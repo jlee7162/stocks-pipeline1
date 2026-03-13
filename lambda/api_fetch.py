@@ -1,50 +1,100 @@
 # lambda/api_fetch.py
 import os
 import json
+import time
 import boto3
-from datetime import datetime
-
+import urllib.request
+import urllib.error
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 dynamodb = boto3.resource("dynamodb")
 TABLE = os.environ.get("TABLE_NAME")
+SECRET = os.environ.get("MASSIVE_API_KEY_SECRET_ARN")
 
-# Optional: get secret
-def get_secret(secret_name):
-    if not secret_name:
-        return None
+WATCHLIST = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA"]
+BASE_URL = "https://api.massive.com/v1/open-close/{ticker}/{date}"
+
+def get_api_key()->str:
     sm = boto3.client("secretsmanager")
+    r = sm.get_secret_value(SecretId=SECRET)
+    return json.loads(r["SecretString"])["MASSIVE_API_KEY"]
+
+def get_last_trade_day() -> str:
+    today = datetime.now(timezone.utc)
+    yesterday = today - timedelta(days=1)
+    if yesterday.weekday() == 5: #if saturday, go back to friday
+        yesterday -= timedelta(days=1)
+    elif yesterday.weekday() == 6: #if sunday, go back to friday
+        yesterday -= timedelta(days=2)
+    return yesterday.strftime("%Y-%m-%d")
+
+def fetch_stock_data(ticker: str, api_key: str, date: str) -> dict | None:
+    url = BASE_URL.format(ticker=ticker, date=date) + f"?adjusted=true&apiKey={api_key}"
     try:
-        r = sm.get_secret_value(SecretId=secret_name)
-        return r.get("SecretString")
-    except Exception:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = json.loads(resp.read().decode())
+
+        open_price = body.get("open")
+        close_price = body.get("close")
+
+        if not open_price or not close_price:
+            print(f"[WARN] Missing OHLC for {ticker}")
+            return None
+
+        return {
+            "ticker": ticker,
+            "open": open_price,
+            "close": close_price,
+            "pct_change": ((close_price - open_price) / open_price) * 100,
+        }
+
+    except urllib.error.HTTPError as e:
+        print(f"[ERROR] HTTP {e.code} on {ticker}")
+        return None
+    except Exception as e:
+        print(f"[ERROR] Unexpected error on {ticker}: {e}")
         return None
 
 def handler(event, context):
-    """
-    If invoked by scheduled EventBridge rule: write a demo item to DynamoDB.
-    If invoked by API Gateway GET /movers: return latest items from table.
-    We'll detect invocation by HTTP (event has 'requestContext') for API, otherwise run ingest.
-    """
-    table = dynamodb.Table(TABLE)
+    #yesterday = "2025-03-07"
+    yesterday = get_last_trade_day()
+    api_key = get_api_key()
+    
+    stock_data, failed = [], []
 
-    # if invoked by API Gateway (GET /movers)
-    if isinstance(event, dict) and event.get("requestContext"):
-        # scan table (ok for small dev tables); sort by timestamp desc and return top 7
-        resp = table.scan()
-        items = resp.get("Items", [])
-        items_sorted = sorted(items, key=lambda x: x.get("timestamp", ""), reverse=True)
-        return {
-            "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(items_sorted[:7])
-        }
+    for ticker in WATCHLIST:
+        result = fetch_stock_data(ticker, api_key, yesterday)
+        if result:
+            stock_data.append(result)
+            print(f"[INFO] {ticker}: {result['pct_change']:+.2f}%")
+        else:
+            failed.append(ticker)
+        time.sleep(0.4)
 
-    # else: scheduled run -> write demo item (replace with real fetch/compute)
-    now = datetime.utcnow().isoformat()
-    demo_item = {
-        "symbol": "DEMO",
-        "timestamp": now,
-        "price": 123.45,
-        "pctChange": 0.0
+    if not stock_data:
+        print("[ERROR] All tickers failed")
+        return {"statusCode": 500, "body": json.dumps({"error": "All tickers failed"})}
+
+    winner = max(stock_data, key=lambda x: abs(x["pct_change"]))
+    print(f"[INFO] Winner: {winner['ticker']} ({winner['pct_change']:+.2f}%)")
+
+    dynamodb.Table(TABLE).put_item(Item={
+        "date": yesterday,
+        "ticker": winner["ticker"],
+        "pct_change": Decimal(str(round(winner["pct_change"], 4))),
+        "close_price": Decimal(str(round(winner["close"], 4))),
+        "open_price": Decimal(str(round(winner["open"], 4))),
+        "direction": "gain" if winner["pct_change"] >= 0 else "loss",
+        "ingested_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "date": yesterday,
+            "winner": winner["ticker"],
+            "pct_change": round(winner["pct_change"], 4),
+            "failed_tickers": failed,
+        })
     }
-    table.put_item(Item=demo_item)
-    return {"statusCode": 200, "body": json.dumps({"saved": demo_item})}
