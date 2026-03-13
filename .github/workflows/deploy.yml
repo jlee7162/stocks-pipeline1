@@ -1,0 +1,47 @@
+name: Deploy frontend QMD to S3
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '30 23 * * 1-5' # Every weekday at 11:30 PM UTC (30mins after lambda)
+  
+jobs:
+  deploy: 
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Install Quarto
+      run: |
+        wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.39/quarto-1.6.39-linux-amd64.deb
+        sudo dpkg -i quarto-1.6.39-linux-amd64.deb
+
+    - name: Render Quarto document
+      run: |
+        quarto render dashboard.qmd
+    
+    - name: Deploy to S3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: 'us-east-1'
+      run: |
+        aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }}/ \
+            --exclude "*.qmd" \
+            --exclude "*.py" \
+            --exclude "*.scss" \
+            --exclude "requirements.txt" \
+            --exclude "*.csv" \
+            --delete
