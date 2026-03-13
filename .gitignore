@@ -8,3 +8,10 @@ __pycache__
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+# Quarto output
+frontend/dashboard.html
+frontend/dashboard_files/
+frontend/.quarto/
+
+# Quarto installer
+*.deb
