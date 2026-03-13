@@ -5,6 +5,7 @@ on:
     branches: [main]
   schedule:
     - cron: '30 23 * * 1-5' # Every weekday at 11:30 PM UTC (30mins after lambda)
+  workflow_dispatch:
   
 jobs:
   deploy: 
