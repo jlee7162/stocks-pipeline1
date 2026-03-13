@@ -30,7 +30,7 @@ jobs:
 
     - name: Render Quarto document
       run: |
-        quarto render dashboard.qmd
+        quarto render frontend/dashboard.qmd
     
     - name: Deploy to S3
       env:
