@@ -31,7 +31,7 @@ def handler(event, context):
 
     table = dynamodb.Table(TABLE)
     today = datetime.now(timezone.utc).date()
-    dates = [(today - timedelta(days=i)).isoformat() for i in range(7)]
+    dates = [(today - timedelta(days=i)).isoformat() for i in range(21)]
 
     items = []
     for date in dates:
@@ -50,4 +50,4 @@ def handler(event, context):
         except Exception as e:
             print(f"Error fetching data for {date}: {e}")
 
-    return build_response(200, {"data": items, "count": len(items)})
+    return build_response(200, {"data": items[:7], "count": len(items[:7])})

@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 API_URL = "https://gcl44jgl01.execute-api.us-east-1.amazonaws.com/prod/movers"  
 
 def fetch_stock_data() -> pd.DataFrame:
-    """Fetch from API, fall back to data.csv if unavailable."""
+    """Fetch from API, fallback to local CSV if API fails"""
     try:
         resp = requests.get(API_URL, timeout=10)
         resp.raise_for_status()
