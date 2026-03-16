@@ -13,15 +13,15 @@ GitHub Actions → Quarto render → S3
 - Node.js
 
 ## Deploy
-# 1. Clone repo
-'''
+1. Clone repo
+```
 git clone https://github.com/YOUR-USERNAME/stocks-pipeline1.git
 cd stocks-pipeline1
-'''
+```
 
-# 2. Create virtual environment
-'''python3 -m venv .venv
-source .venv/bin/activate '''
+2. Create virtual environment
+```python3 -m venv .venv
+source .venv/bin/activate ```
 
 # 3. Install dependencies
 pip install -r requirements.txt
