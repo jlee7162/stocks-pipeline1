@@ -16,7 +16,7 @@ df = fetch_stock_data()  # fetches from your API or falls back to data.csv
 
 # Top Movers
 
-## Row
+## Row {height="40%"}
 ```{python}
 #| content: valuebox
 #| title: "Latest Winner"
@@ -43,7 +43,7 @@ dict(icon="currency-dollar", color="light", value=f"${latest['close_price']:.2f}
 plot_pct_change(df)
 ```
 
-## Row
+## Row {height="40%"}
 ```{python}
 #| title: "Top Mover History"
 from IPython.display import Markdown
