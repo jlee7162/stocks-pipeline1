@@ -28,33 +28,47 @@ def get_last_trade_day() -> str:
         yesterday -= timedelta(days=2)
     return yesterday.strftime("%Y-%m-%d")
 
-def fetch_stock_data(ticker: str, api_key: str, date: str) -> dict | None:
+def fetch_stock_data(ticker: str, api_key: str, date: str, retries: int=3) -> dict | None:
     url = BASE_URL.format(ticker=ticker, date=date) + f"?adjusted=true&apiKey={api_key}"
-    try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = json.loads(resp.read().decode())
 
-        open_price = body.get("open")
-        close_price = body.get("close")
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode())
 
-        if not open_price or not close_price:
-            print(f"[WARN] Missing OHLC for {ticker}")
+            open_price = body.get("open")
+            close_price = body.get("close")
+
+            if not open_price or not close_price:
+                print(f"[WARN] Missing OHLC for {ticker}")
+                return None
+
+            return {
+                "ticker": ticker,
+                "open": open_price,
+                "close": close_price,
+                "pct_change": ((close_price - open_price) / open_price) * 100,
+            }
+
+        except urllib.error.HTTPError as e:
+            if e.code == 429:  # rate limited
+                wait = 2 ** attempt  # 2s, 4s, 8s
+                print(f"[WARN] Rate limited on {ticker}, retrying in {wait}s (attempt {attempt}/{retries})")
+                time.sleep(wait)
+            elif e.code in (401, 403):  # auth failure
+                print(f"[ERROR] Auth failure on {ticker} — check API key. HTTP {e.code}")
+                raise  # stop immediately, no point retrying
+            else:
+                print(f"[ERROR] HTTP {e.code} on {ticker}")
+                return None
+
+        except urllib.error.HTTPError as e:
+            print(f"[ERROR] HTTP {e.code} on {ticker}")
             return None
-
-        return {
-            "ticker": ticker,
-            "open": open_price,
-            "close": close_price,
-            "pct_change": ((close_price - open_price) / open_price) * 100,
-        }
-
-    except urllib.error.HTTPError as e:
-        print(f"[ERROR] HTTP {e.code} on {ticker}")
-        return None
-    except Exception as e:
-        print(f"[ERROR] Unexpected error on {ticker}: {e}")
-        return None
+        except Exception as e:
+            print(f"[ERROR] Unexpected error on {ticker}: {e}")
+            return None
 
 def handler(event, context):
     #yesterday = "2025-03-07"
@@ -70,7 +84,7 @@ def handler(event, context):
             print(f"[INFO] {ticker}: {result['pct_change']:+.2f}%")
         else:
             failed.append(ticker)
-        time.sleep(0.4)
+        time.sleep(0.8)
 
     if not stock_data:
         print("[ERROR] All tickers failed")

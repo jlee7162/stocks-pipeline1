@@ -27,7 +27,6 @@ class StocksPipeline1Stack(Stack):
         table = dynamodb.Table(
             self, "StocksTable",
             partition_key=dynamodb.Attribute(name="date", type=dynamodb.AttributeType.STRING),
-            #sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.STRING),
             removal_policy=cdk.RemovalPolicy.DESTROY,            # dev only
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
         )
