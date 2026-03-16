@@ -57,5 +57,5 @@ Markdown(display_df.to_markdown(index=False))
 # Data
 ```{python}
 #| title: Raw Data
-show(df)
+show(df, style="width:100%; text-align:left", classes="display")
 ```

@@ -1,5 +1,5 @@
 date,ticker,pct_change,open_price,close_price,direction
-2026-03-13,NVDA,-2.5254,184.92,180.25,loss
+2026-03-13,AAPL,-2.098,255.48,250.12,loss
 2026-03-12,TSLA,-2.5088,405.175,395.01,loss
 2026-03-11,AMZN,-1.4163,215.705,212.65,loss
 2026-03-10,AAPL,1.2362,257.645,260.83,gain
